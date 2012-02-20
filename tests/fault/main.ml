@@ -14,36 +14,21 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(** Sequential implementation *)
+open Format
+open Functory.Network
+let () = Functory.Control.set_debug true
+let () = declare_workers ~n:1 "moloch"
+let () = declare_workers ~n:1 "localhost"
 
-let map ~f l = List.map f l
+let map x =
+  eprintf "task %d@." x;
+  Unix.sleep (if x = 1 then 100 else 30);
+  x
 
-let map_local_fold ~f ~fold acc l =
-  List.fold_left (fun acc x -> fold acc (f x)) acc l
+let () = assert (Same.map_local_fold ~f:map ~fold:(+) 0 [1; 2] = 3)
 
-let map_remote_fold = map_local_fold
-
-let map_fold_ac = map_local_fold
-
-let map_fold_a = map_local_fold
-
-let map_reduce ~map ~reduce l =
-  let h = Hashtbl.create 5003 in
-  let add (k2, v2) =
-    try Hashtbl.replace h k2 ([v2] :: Hashtbl.find h k2)
-    with Not_found -> Hashtbl.add h k2 [[v2]]
-  in
-  List.iter (fun v1 -> List.iter add (map v1)) l;
-  Hashtbl.fold (fun k2 v2l res -> (k2, reduce k2 v2l) :: res) h []
-
-
-let compute ~worker ~master l =
-  let pending = Stack.create () in
-  let add l = List.iter (fun t -> Stack.push t pending) l in
-  add l;
-  while not (Stack.is_empty pending) do
-    let a,_ as t = Stack.pop pending in
-    let l = master t (worker a) in
-    add l
-  done
-
+(*
+Local Variables: 
+compile-command: "unset LANG; make -C ../.. install-test"
+End: 
+*)

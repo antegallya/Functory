@@ -24,7 +24,7 @@ MANDIR=@mandir@
 
 # other variables set by ./configure
 OCAMLC   = @OCAMLC@
-OCAMLOPT = @OCAMLOPT@ -g
+OCAMLOPT = @OCAMLOPT@ -g -annot
 OCAMLDEP = @OCAMLDEP@
 OCAMLLEX = @OCAMLLEX@
 OCAMLYACC= @OCAMLYACC@
@@ -117,7 +117,7 @@ test.byte: $(CMA) $(TCMO)
 test.opt: $(CMXA) $(TCMX)
 	$(OCAMLOPT) $(INCLUDES) -o $@ unix.cmxa $^
 
-VERSION=0.2
+VERSION=0.3
 
 version.ml: Makefile
 	echo "let version = \""$(VERSION)"\"" > version.ml
@@ -145,11 +145,23 @@ install-test: tests/fault/a.out
 install-queens: tests/n-queens/queens64.opt
 	cp tests/n-queens/queens64.opt ~
 
+install-data-test: tests/data-test/a.out
+	cp tests/data-test/a.out ~/data.opt
+
+install-mandelbrot: tests/mandelbrot/a.out
+	cp tests/mandelbrot/a.out ~/mandelbrot.opt
+
 install-provers: tests/provers/a.out
 	cp tests/provers/a.out ~/disco-provers.opt
 
 tests/%/a.out: tests/%/main.ml functory.cmxa
-	$(OCAMLOPT) unix.cmxa functory.cmxa tests/$*/main.ml -o $@
+	$(OCAMLOPT) graphics.cmxa unix.cmxa functory.cmxa tests/$*/main.ml -o $@
+
+tests/pasco/%: tests/pasco/poly.ml tests/pasco/dpoly.ml tests/pasco/%.ml functory.cmxa
+	$(OCAMLOPT) -I +creal -I tests/pasco/ creal.cmxa unix.cmxa functory.cmxa tests/pasco/poly.ml tests/pasco/dpoly.ml tests/pasco/$*.ml -o $@
+
+install-pasco: tests/pasco/matmul
+	cp tests/pasco/matmul ~
 
 tests/n-queens/queens64.opt: tests/n-queens/main64.ml functory.cmxa
 	$(OCAMLOPT) unix.cmxa functory.cmxa tests/n-queens/main64.ml -o $@
@@ -187,7 +199,7 @@ TAR=$(EXPORTDIR).tar
 
 WWW = $$HOME/WWW/$(NAME)
 
-FILES = *.ml* \
+FILES = *.mli *.ml tests/*/*.ml \
 	Makefile.in configure configure.in   \
 	.depend README.txt LICENSE CHANGES
 
@@ -196,7 +208,7 @@ export: source export-www export-doc
 
 source: 
 	mkdir -p export/$(EXPORTDIR)
-	cp $(FILES) export/$(EXPORTDIR)
+	cp --parents $(FILES) export/$(EXPORTDIR)
 	cd export ; tar cf $(TAR) $(EXPORTDIR) ; gzip -f --best $(TAR)
 	cp export/$(TAR).gz $(WWW)/download/
 

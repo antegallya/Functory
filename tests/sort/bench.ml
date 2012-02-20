@@ -14,21 +14,21 @@
 (*                                                                        *)
 (**************************************************************************)
 
-let debug = ref false
+open Format
 
-let set_debug b = debug := b
+(* outputs n lines of k alphabetic characters *)
 
-let buf = Buffer.create 1024
-let fmt = Format.formatter_of_buffer buf
+let n = int_of_string Sys.argv.(1) (* total number of strings *)
+let k = int_of_string Sys.argv.(2) (* length of each string *)
 
-let dprintf s =
-  Format.kfprintf 
-    (fun _ -> 
-       if !debug then begin 
-	 Format.eprintf "%s" (Buffer.contents buf); 
-	 Buffer.reset buf;
-	 flush stderr 
-       end)
-    fmt s
+let create_string () =
+  let s = String.create k in
+  for i = 0 to k-1 do
+    s.[i] <- Char.chr (97 + Random.int 26)
+  done;
+  s
 
-
+let () =
+  for i = 1 to n do
+    printf "%s@." (create_string ())
+  done

@@ -68,6 +68,13 @@ let generic_receive get fd =
 
 exception BadProtocol
 
+let print_string fmt s =
+  let n = String.length s in
+  if n <= 10 then 
+    fprintf fmt "%S" s 
+  else
+    fprintf fmt "<length %d>" n
+
 module Master = struct
 
   type t = 
@@ -78,11 +85,11 @@ module Master = struct
 
   let print fmt = function
     | Assign (id, f, a) ->
-	fprintf fmt "assign %d f=%S a=%S" id f a
+	fprintf fmt "assign %d f=%a a=%a" id print_string f print_string a 
     | Kill id ->
 	fprintf fmt "kill %d" id
     | Stop s ->
-	fprintf fmt "stop result=%S" s
+	fprintf fmt "stop result=%a" print_string s
     | Ping ->
 	fprintf fmt "ping"
 
@@ -142,7 +149,7 @@ module Worker = struct
     | Pong -> 
 	fprintf fmt "pong"
     | Completed (id, s) ->
-	fprintf fmt "completed %d s=%S" id s
+	fprintf fmt "completed %d s=%a" id print_string s
     | Aborted id ->
 	fprintf fmt "aborted %d" id
 

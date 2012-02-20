@@ -1,7 +1,5 @@
 binary.cmo: binary.cmi 
 binary.cmx: binary.cmi 
-bug.cmo: functory.cmi 
-bug.cmx: functory.cmi 
 control.cmo: 
 control.cmx: 
 cores.cmo: map_fold.cmo control.cmo 
