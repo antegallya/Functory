@@ -1769,8 +1769,8 @@ echo "ocaml library path is $OCAMLLIB"
 
 case $OCAMLVERSION in
   0.*|1.*|2.*|3.0**)
-        { { $as_echo "$as_me:$LINENO: error: factory requires Ocaml version 3.10.0 or higher" >&5
-$as_echo "$as_me: error: factory requires Ocaml version 3.10.0 or higher" >&2;}
+        { { $as_echo "$as_me:$LINENO: error: Functory requires Ocaml version 3.10.0 or higher" >&5
+$as_echo "$as_me: error: Functory requires Ocaml version 3.10.0 or higher" >&2;}
    { (exit 1); exit 1; }; };;
 esac
 
