@@ -1,4 +1,16 @@
 
+version 0.5, January 20, 2012
+-----------------------------
+ o Cores: now uses a queue, so that tasks are processed in the order they
+   appear in the list of taks.
+ o Cores: if master raises an exception e, then compute kills the
+   unterminated jobs and raises the same exception e
+ o META file contributed by François Berenger (berenger@riken.jp)
+
+version 0.4, April 4, 2011
+--------------------------
+ o low-level API (see sub-module Computation)
+
 version 0.2, August 12, 2010
 ----------------------------
  o fixed memory leak
