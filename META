@@ -1,0 +1,5 @@
+version = "0.5"
+description = "Functory distributed computing library"
+requires = "unix"
+archive(byte) = "functory.cma"
+archive(native) = "functory.cmxa"
