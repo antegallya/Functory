@@ -1,0 +1,10 @@
+Makefile
+config.status
+*.annot
+*.o
+*.a
+*.cmo
+*.cmx
+*.cmi
+*.cma
+*.cmxa
