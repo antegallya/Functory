@@ -117,7 +117,7 @@ test.byte: $(CMA) $(TCMO)
 test.opt: $(CMXA) $(TCMX)
 	$(OCAMLOPT) $(INCLUDES) -o $@ unix.cmxa $^
 
-VERSION=0.3
+VERSION=0.4
 
 version.ml: Makefile
 	echo "let version = \""$(VERSION)"\"" > version.ml
@@ -156,6 +156,12 @@ install-provers: tests/provers/a.out
 
 tests/%/a.out: tests/%/main.ml functory.cmxa
 	$(OCAMLOPT) graphics.cmxa unix.cmxa functory.cmxa tests/$*/main.ml -o $@
+
+tests/%.gtk2: tests/%.ml functory.cmxa
+	$(OCAMLOPT) -I +lablgtk2 lablgtk.cmxa lablgnomecanvas.cmxa unix.cmxa functory.cmxa tests/$*.ml -o $@
+
+tests/%.opt: tests/%.ml functory.cmxa
+	$(OCAMLOPT) graphics.cmxa unix.cmxa functory.cmxa tests/$*.ml -o $@
 
 tests/pasco/%: tests/pasco/poly.ml tests/pasco/dpoly.ml tests/pasco/%.ml functory.cmxa
 	$(OCAMLOPT) -I +creal -I tests/pasco/ creal.cmxa unix.cmxa functory.cmxa tests/pasco/poly.ml tests/pasco/dpoly.ml tests/pasco/$*.ml -o $@
