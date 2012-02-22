@@ -19,12 +19,12 @@ open Control
 open Unix
 
 (* main loop: assigns tasks to workers, until no more task *)
-let run 
-    ~(create_job : 'worker -> 'task -> unit) 
-    ~(wait : unit -> 'worker * 'task list) 
+let run
+    ~(create_job : 'worker -> 'task -> unit)
+    ~(wait : unit -> 'worker * 'task list)
     (workers : 'worker list)
     (tasks : 'task list)
-    = 
+    =
   let todo = Queue.create () in
   List.iter (fun t -> Queue.push t todo) tasks;
   let towait = ref 0 in
@@ -59,55 +59,56 @@ type 'a job = {
   worker : int;
   pid : int;
   file : string;
-  task : 'a; 
+  task : 'a;
 }
 
 let create_worker w (f : 'a -> 'b) (t : 'a * 'c) : ('a * 'c) job =
   let file = Filename.temp_file "mapfold" "output" in
   match fork () with
-    | 0 -> (* child *)
-	let r = f (fst t) in
-	let c = open_out file in
-	output_value c r;
-	close_out c;
-	exit 0
-    | pid -> (* parent *)
-	{ worker = w;
-	  pid = pid;
-	  file = file;
-	  task = t }
+  | 0 -> (* child *)
+    let r = f (fst t) in
+    let c = open_out file in
+    output_value c r;
+    close_out c;
+    exit 0
+  | pid -> (* parent *)
+    { worker = w;
+      pid = pid;
+      file = file;
+      task = t }
 
-let compute 
+let compute
     ~(worker : 'a -> 'b) ~(master : ('a * 'c) -> 'b -> ('a * 'c) list) tasks =
   let jobs = Hashtbl.create 17 in (* PID -> job *)
-  let rec wait () = 
+  let rec wait () =
     match Unix.wait () with
-    | p, WEXITED e -> 
-        dprintf "master: got result from worker PID %d@." p;
-        begin try
-          let j = Hashtbl.find jobs p in
-	  Hashtbl.remove jobs p;
-          dprintf "master: got result from worker %d@." j.worker;
-          let c = open_in (*in_channel_of_descr *) j.file in
-          let r : 'b = input_value c in
-          close_in c;
-          Sys.remove j.file;
-          let l = master j.task r in j.worker, l
-        with Not_found -> 
-          (* If the pid is unknown to us, it's probably a process created
-	     by one of the workers. In this case, simply continue to wait. *)
-          wait () 
-	end
+    | p, WEXITED e ->
+      dprintf "master: got result from worker PID %d@." p;
+      begin try
+              let j = Hashtbl.find jobs p in
+              Hashtbl.remove jobs p;
+              dprintf "master: got result from worker %d@." j.worker;
+              let c = open_in (*in_channel_of_descr *) j.file in
+              let r : 'b = input_value c in
+              close_in c;
+              Sys.remove j.file;
+              let l = master j.task r in j.worker, l
+        with Not_found ->
+          (* If the pid is unknown to us, it's probably a process
+	     created by one of the workers. In this case, simply
+	     continue to wait. *)
+          wait ()
+      end
     | p, _ ->
-        Format.eprintf "master: ** PID %d killed or stopped! **@." p;
-        wait ()
+      Format.eprintf "master: ** PID %d killed or stopped! **@." p;
+      wait ()
   in
   try
     run
       ~create_job:(fun w t ->
-	let j = create_worker w worker t in
-	dprintf "master: started worker %d (PID %d)@." w j.pid;
-	Hashtbl.add jobs j.pid j)
+        let j = create_worker w worker t in
+        dprintf "master: started worker %d (PID %d)@." w j.pid;
+        Hashtbl.add jobs j.pid j)
       ~wait (workers ()) tasks
   with e ->
     Hashtbl.iter (fun p _ -> try Unix.kill p Sys.sigkill with _ -> ()) jobs;
@@ -218,3 +219,114 @@ let map_reduce ~map ~reduce l =
 
 
 **********)
+
+module type TASKQUEUE = sig
+  type data
+  type id
+  type t
+  val create : unit -> t
+  val is_empty : t -> bool
+  val pop : t -> data * id
+  val push : data * id -> t -> unit
+end
+
+module Make(Q: TASKQUEUE) = struct
+  type task = Q.data * Q.id
+
+  (* main loop: assigns tasks to workers, until no more task *)
+  let run
+      ~(create_job : 'worker -> 'task -> unit)
+      ~(wait : unit -> 'worker * 'task list)
+      (workers : 'worker list)
+      (tasks : 'task list)
+      =
+    let todo = Q.create () in
+    List.iter (fun t -> Q.push t todo) tasks;
+    let towait = ref 0 in
+    let idle = Queue.create () in
+    List.iter (fun w -> Queue.push w idle) workers;
+    while not (Q.is_empty todo) || !towait > 0 do
+      (* if possible, start new workers *)
+      while not (Queue.is_empty idle) && not (Q.is_empty todo) do
+        let t = Q.pop todo in
+        let w = Queue.pop idle in
+        create_job w t;
+        incr towait
+      done;
+      assert (!towait > 0);
+      (* otherwise, wait for results *)
+      let w, tl = wait () in
+      decr towait;
+      Queue.push w idle;
+      List.iter (fun t -> Q.push t todo) tl
+    done;
+    assert (Q.is_empty todo && !towait = 0)
+
+  let ncores = ref 1
+  let set_number_of_cores n = ncores := n
+
+  let rec listij acc i j = if i > j then acc else listij (j :: acc) i (j-1)
+  let workers () = listij [] 1 !ncores
+
+  (*** using local files ***************************************************)
+
+  type 'a job = {
+    worker : int;
+    pid : int;
+    file : string;
+    task : 'a;
+  }
+
+  let create_worker w (f : 'a -> 'b) (t : 'a * 'c) : ('a * 'c) job =
+    let file = Filename.temp_file "mapfold" "output" in
+    match fork () with
+    | 0 -> (* child *)
+      let r = f (fst t) in
+      let c = open_out file in
+      output_value c r;
+      close_out c;
+      exit 0
+    | pid -> (* parent *)
+      { worker = w;
+        pid = pid;
+        file = file;
+        task = t }
+
+  let compute
+      ~(worker : 'a -> 'b) ~(master : ('a * 'c) -> 'b -> ('a * 'c) list) tasks =
+    let jobs = Hashtbl.create 17 in (* PID -> job *)
+    let rec wait () =
+      match Unix.wait () with
+      | p, WEXITED e ->
+        dprintf "master: got result from worker PID %d@." p;
+        begin try
+                let j = Hashtbl.find jobs p in
+                Hashtbl.remove jobs p;
+                dprintf "master: got result from worker %d@." j.worker;
+                let c = open_in (*in_channel_of_descr *) j.file in
+                let r : 'b = input_value c in
+                close_in c;
+                Sys.remove j.file;
+                let l = master j.task r in j.worker, l
+          with Not_found ->
+            (* If the pid is unknown to us, it's probably a process
+	       created by one of the workers. In this case, simply
+	       continue to wait. *)
+            wait ()
+        end
+      | p, _ ->
+        Format.eprintf "master: ** PID %d killed or stopped! **@." p;
+        wait ()
+    in
+    try
+      run
+        ~create_job:(fun w t ->
+          let j = create_worker w worker t in
+          dprintf "master: started worker %d (PID %d)@." w j.pid;
+          Hashtbl.add jobs j.pid j)
+          ~wait (workers ()) tasks
+    with e ->
+      Hashtbl.iter (fun p _ -> try Unix.kill p Sys.sigkill with _ -> ()) jobs;
+      raise e
+
+end
